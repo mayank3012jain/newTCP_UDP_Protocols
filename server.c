@@ -143,7 +143,7 @@ int main (){
                 fprintf (fptr1, "%s", rcvdPkt.data);
                 ackPkt = generatePkt(&rcvdPkt);
                 int bytesSent = send(clientSocket[i], ackPkt, sizeof(ackPkt),0);
-
+            break;
             }
         }
         //if msg recieved from client2

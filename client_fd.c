@@ -16,7 +16,6 @@
 #define PORT_NUMBER 12347
 
 void generatePkt(packet* pkt, int isData, int channel, FILE* fptr){
-    // packet* pkt = (packet*)malloc(sizeof(packet));
     pkt->channel= channel;
     pkt->isData=isData;
     pkt->seq = ftell(fptr);
@@ -49,11 +48,12 @@ int main(){
     FILE *fptr1 = fopen("read1.txt", "r");
     FILE *fptr2 = fopen("read2.txt", "r");
     int stop=0;
-    packet pkt1, pkt2;
+    packet pkt[2];
     packet* rcvdPkt = (packet*)malloc(sizeof(packet));
     /* CREATE A TCP SOCKET*/
-    int sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock < 0) { printf ("Error in opening a socket"); exit (0);}
+    int sock[2];
+    sock[0] = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock[0] < 0) { printf ("Error in opening a socket"); exit (0);}
     printf ("Client Socket1 Created\n");
 
     /*CONSTRUCT SERVER ADDRESS STRUCTURE*/
@@ -68,7 +68,7 @@ int main(){
     char sendBuff[PACKET_SIZE];
     memset(sendBuff, '0', sizeof(sendBuff));
 
-    int c1 = connect (sock, (struct sockaddr*) &serverAddr, sizeof(serverAddr));
+    int c1 = connect (sock[0], (struct sockaddr*) &serverAddr, sizeof(serverAddr));
     printf ("%d\n",c1);
     if (c1 < 0)
         { printf ("Error while establishing connection");
@@ -76,11 +76,11 @@ int main(){
         }
     printf ("Connection 1 Established\n");
 
-    int sock2 = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock2 < 0) { printf ("Error in opening a socket2"); exit (0);}
+    sock[1] = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock[1] < 0) { printf ("Error in opening a socket2"); exit (0);}
     printf("Client Socket2 Created\n");
 
-    c1 = connect (sock2, (struct sockaddr*) &serverAddr, sizeof(serverAddr));
+    c1 = connect (sock[1], (struct sockaddr*) &serverAddr, sizeof(serverAddr));
     printf ("%d\n",c1);
     if (c1 < 0)
         { printf ("Error while establishing connection");
@@ -91,20 +91,20 @@ int main(){
     /*Send initial msgs*/
     // char msg[PACKET_SIZE];
     // strcpy(msg, "Hi, I'm C1!!");
-    generatePkt(&pkt1, 1, 1, fptr1);
-    printf("The msg was --%s--\n", pkt1.data);
-    int bytesSent = send(sock, &pkt1, sizeof(pkt1), 0);
-    if (bytesSent != sizeof(pkt1))
+    generatePkt(&pkt[0], 1, 1, fptr1);
+    printf("The msg was --%s--\n", pkt[0].data);
+    int bytesSent = send(sock[0], &pkt[0], sizeof(pkt[0]), 0);
+    if (bytesSent != sizeof(pkt[0]))
         { printf("Error while sending the message");
         exit(0);
         }
     printf ("Initial C1 Data Sent\n");
 
     // strcpy(msg, "Hi, I'm C2!!");
-    generatePkt(&pkt2, 1, 2, fptr1);
-    printf("The msg was --%s--\n", pkt2.data);
-    bytesSent = send(sock2, &pkt2, sizeof(pkt2), 0);
-    if (bytesSent != sizeof(pkt2))
+    generatePkt(&pkt[1], 1, 2, fptr1);
+    printf("The msg was --%s--\n", pkt[1].data);
+    bytesSent = send(sock[1], &pkt[1], sizeof(pkt[1]), 0);
+    if (bytesSent != sizeof(pkt[1]))
         { printf("Error while sending the message");
         exit(0);
         }
@@ -113,7 +113,7 @@ int main(){
     fd_set rset;
     FD_ZERO(&rset);
     int max_fd;
-    max_fd = sock2>sock ? sock2:sock;
+    max_fd = sock[1]>sock[0] ? sock[1]:sock[0];
     
     int d=1;
     while(1){
@@ -124,8 +124,8 @@ int main(){
         // }
         
         FD_ZERO(&rset);
-        FD_SET(sock, &rset);   
-        FD_SET(sock2, &rset);  
+        FD_SET(sock[0], &rset);   
+        FD_SET(sock[1], &rset);  
         printf("Waiting for acks\n");
 
         //blocking rcv on both
@@ -137,79 +137,85 @@ int main(){
         }  
 
         //if ack recieved from sock1
-        if(FD_ISSET(sock, &rset)){
-            /*RECEIVE BYTES*/
-            // char recvBuffer[PACKET_SIZE];
-            int bytesRecvd = recv (sock, rcvdPkt, sizeof(packet), 0);
-            if (bytesRecvd < 0)
-                { printf ("Error while receiving data from server");
-                exit (0);
-                }
-            // recvBuffer[bytesRecvd] = '\0';
-            printf ("sock: %d: %s\n", rcvdPkt->seq, rcvdPkt->data);
+        for(int i=0; i<2; i++){
+            if(FD_ISSET(sock[i], &rset)){
+                /*RECEIVE BYTES*/
+                // char recvBuffer[PACKET_SIZE];
+                int bytesRecvd = recv (sock[i], rcvdPkt, sizeof(packet), 0);
+                if (bytesRecvd < 0)
+                    { printf ("Error while receiving data from server");
+                    exit (0);
+                    }
+                // recvBuffer[bytesRecvd] = '\0';
+                printf ("sock %d: %d: %s\n",i, rcvdPkt->seq, rcvdPkt->data);
 
-            if(feof(fptr1)){
+                if(feof(fptr1)){
+                    printf("\n%d in end", i);
+                    if(stop ==1){
+                        printf("\nFile 1 transfered. :)");
+                        close(sock[0]);
+                        close(sock[1]);
+                        fclose(fptr1);
+                        fclose(fptr2);
+                        return 0;
+                    }
+                    stop=1;
+                    continue;
+                }
+
+                printf ("ENTER MESSAGE FOR SERVER sock\n");
                 
-                if(stop ==1){
-                    printf("\nFile 1 transfered. :)");
-                    break;
-                }
-                stop=1;
-                continue;
+                generatePkt(&pkt[i], 1, i, fptr1);
+                printf("The msg was --%s--\n", pkt[i].data);
+                int bytesSent = send (sock[i], &pkt[i], sizeof(pkt[i]), 0);
+                if (bytesSent != sizeof(pkt[i]))
+                    { printf("Error while sending the message");
+                    exit(0);
+                    }
+                printf ("Data Sent on channel %d\n", i);
+                break;
+                
             }
-
-            printf ("ENTER MESSAGE FOR SERVER sock\n");
-            
-            generatePkt(&pkt1, 1, 1, fptr1);
-            printf("The msg was --%s--\n", pkt1.data);
-            int bytesSent = send (sock, &pkt1, sizeof(pkt1), 0);
-            if (bytesSent != sizeof(pkt1))
-                { printf("Error while sending the message");
-                exit(0);
-                }
-            printf ("Data Sent on channel 1\n");
-
-            
         }
         
         //if msg recieved from client2
-        else if(FD_ISSET(sock2, &rset)){
-            /*RECEIVE BYTES*/
-            char recvBuffer[PACKET_SIZE];
-            int bytesRecvd = recv (sock2, rcvdPkt, sizeof(packet), 0);
-            if (bytesRecvd < 0)
-                { printf ("Error while receiving data from server");
-                exit (0);
-                }
-            // recvBuffer[bytesRecvd] = '\0';
-            printf ("sock2 %d: %s\n",rcvdPkt->seq, rcvdPkt->data);
+        // else if(FD_ISSET(sock[1], &rset)){
+        //     /*RECEIVE BYTES*/
+        //     char recvBuffer[PACKET_SIZE];
+        //     int bytesRecvd = recv (sock[1], rcvdPkt, sizeof(packet), 0);
+        //     if (bytesRecvd < 0)
+        //         { printf ("Error while receiving data from server");
+        //         exit (0);
+        //         }
+        //     // recvBuffer[bytesRecvd] = '\0';
+        //     printf ("sock2 %d: %s\n",rcvdPkt->seq, rcvdPkt->data);
 
-            if(feof(fptr1)){
+        //     if(feof(fptr1)){
                 
-                if(stop ==1){
-                    printf("\nFile 1 transfered. :)");
-                    break;
-                }
-                stop=1;
-                continue;
-            }
+        //         if(stop ==1){
+        //             printf("\nFile 1 transfered. :)");
+        //             break;
+        //         }
+        //         stop=1;
+        //         continue;
+        //     }
 
-            printf ("ENTER MESSAGE FOR SERVER with max 32 characters\n");
+        //     printf ("ENTER MESSAGE FOR SERVER with max 32 characters\n");
                         
-            generatePkt(&pkt2,1, 2, fptr1);
-            printf("The msg was --%s--\n", pkt2.data);
-            bytesSent = send(sock2, &pkt2, sizeof(pkt2), 0);
-            if (bytesSent != sizeof(pkt2))
-                { printf("Error while sending the message");
-                exit(0);
-                }
-            printf ("Data Sent on channel 2\n");
+        //     generatePkt(&pkt2,1, 2, fptr1);
+        //     printf("The msg was --%s--\n", pkt2.data);
+        //     bytesSent = send(sock[1], &pkt2, sizeof(pkt2), 0);
+        //     if (bytesSent != sizeof(pkt2))
+        //         { printf("Error while sending the message");
+        //         exit(0);
+        //         }
+        //     printf ("Data Sent on channel 2\n");
             
             
-        }
+        // }
     }
-    close(sock);
-    close(sock2);
+    close(sock[0]);
+    close(sock[1]);
     fclose(fptr1);
     fclose(fptr2);
 }
