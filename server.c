@@ -13,27 +13,82 @@
 
 #define MAXPENDING 5
 #define BUFFERSIZE 1024
+#define PDR 10
 
-packet* generatePkt(packet* datapkt){
-    packet* pkt = (packet*)malloc(sizeof(packet));
+typedef struct listNode{
+    int seq;
+    int nextSeq;
+    char data[BUFFERSIZE];
+    struct listNode* next;
+}listNode;
+
+void generatePkt(packet* pkt, packet* datapkt){
+    // packet* pkt = (packet*)malloc(sizeof(packet));
     pkt->size = 0;
     pkt->seq = datapkt->seq;
     pkt->isLast = datapkt->isLast;
     pkt->isData= 0;
     pkt->channel= datapkt->channel;
     // strcpy(pkt->data, "ABC");
-    return pkt;
+    return;
 }
 
+listNode* bufferedWrite(packet* pkt, int *req, listNode* head, FILE* fptr){
+    if(pkt->seq == *req){
+        fprintf (fptr, "%s", pkt->data);
+        *req = pkt->seq + pkt->size -1;
+        while(head){
+            if(head->seq != *req){
+                break;
+            }else{
+                fprintf (fptr, "%s", head->data);
+                *req = head->nextSeq;
+            }
+            listNode* temp = head;
+            head = head->next;
+            free(temp);
+        }  
+    }else{
+        //insert
+        listNode* temp = head, *prev = NULL;
+        listNode* cur = (listNode*)malloc(sizeof(listNode));
+        cur->seq= pkt->seq;
+        cur->nextSeq = pkt->seq + pkt->size -1;
+        strcpy(cur->data, pkt->data);
+        while(temp){
+            if(temp->seq>= cur->nextSeq){
+                cur->next = temp;
+                if(prev){
+                    prev->next = cur;
+                    return head;
+                }else{
+                    return cur;
+                }
+            }
+            prev = temp;
+            temp = temp->next;
+        }
+        cur->next = temp;
+        if(prev){
+            prev->next = cur;
+            return head;
+        }else{
+            return cur;
+        }
+
+    }
+    return head;
+}
 
 int main (){
 
     FILE* fptr1 = fopen("copy1.txt", "w");
-    // FILE* fptr2 = fopen("copy2.txt", "w");
     int f[2] = {0, 0};
-    // packet *rcvdPkt = (packet*)malloc(sizeof(packet));
     packet rcvdPkt;
-    packet *ackPkt = (packet*)malloc(sizeof(packet));
+    packet ackPkt;
+
+    listNode* bufferHead = NULL;
+    int reqSeq =0;
 
     fd_set rset;
     FD_ZERO(&rset);
@@ -76,8 +131,6 @@ int main (){
         exit (0);
         }
     printf ("Now Listening\n");
-    char msg[BUFFERSIZE];
-    char msg2[BUFFERSIZE];
     printf ("Waiting for Client %s\n", inet_ntoa(clientAddress.sin_addr));
 
     //clear the socket set  
@@ -100,7 +153,7 @@ int main (){
     max_fd = clientSocket[0]>=clientSocket[1] ? clientSocket[0]: clientSocket[1];
     printf("----%d--%d--%d", max_fd, clientSocket[0], clientSocket[1]);
     
-    int d=1;
+    int d=1, i=0;
     while(d==1){
         printf("enter 0 or 1");
         // scanf("%d", &d);
@@ -109,7 +162,6 @@ int main (){
         // }
         if(f[0]==1 && f[1]==1){
             fclose(fptr1);
-            // fclose(fptr2);
             return 0;
         }
         FD_ZERO(&rset);
@@ -124,7 +176,9 @@ int main (){
             printf("select error");  
             exit(0); 
         }  
-
+        
+        i++;
+        int drop = 100/PDR;
         //if msg recieved from client1
         for(int i=0; i<2; i++){
             if(FD_ISSET(clientSocket[i], &rset)){
@@ -138,40 +192,27 @@ int main (){
                     f[i] = 1;
                     continue;
                 }
-                msg[temp2] = '\0';
+                bufferHead = bufferedWrite(&rcvdPkt, &reqSeq, bufferHead, fptr1);
                 fprintf (stdout, "Msg recieved:%d- %s\n", rcvdPkt.seq, rcvdPkt.data);
-                fprintf (fptr1, "%s", rcvdPkt.data);
-                ackPkt = generatePkt(&rcvdPkt);
-                int bytesSent = send(clientSocket[i], ackPkt, sizeof(ackPkt),0);
-            break;
+                // fprintf (fptr1, "%s", rcvdPkt.data);
+                generatePkt(&ackPkt, &rcvdPkt);
+                if(i%drop != 0){
+                    int bytesSent = send(clientSocket[i], &ackPkt, sizeof(ackPkt),0);
+                }
+                break;
             }
         }
-        //if msg recieved from client2
-        // else if(FD_ISSET(clientSocket[1], &rset)){                
-        //     int temp3 = recv(clientSocket[1], rcvdPkt, sizeof(rcvdPkt), 0);
-        //     if (temp3 < 0)
-        //         { printf ("problem in temp 3");
-        //         exit (0);
-        //     }else if(temp3==0){
-        //         printf("Closing channel 2.");
-        //         close(clientSocket[1]);
-        //         f2 = 1;
-        //         continue;
-        //     }
-        //     msg2[temp3] = '\0';
-        //     fprintf (fptr2, "%s\n", msg2);
-        //     strcpy(msg2, "ACK");
-        //     int bytesSent = send(clientSocket[1],msg2,strlen(msg2),0);
-            
-        // }
-        memset(msg, 0, BUFFERSIZE);
-        memset(msg2, 0, BUFFERSIZE);
-
-        
+     
     }
+    listNode* tempN = bufferHead;
+    while (tempN){
+        fprintf (fptr1, "%s", tempN->data);
+        tempN= tempN->next;
+    }
+    
     close(serverSocket);
     close(clientSocket[0]);
     close(clientSocket[1]);
     fclose(fptr1);
-    // fclose(fptr2);
+    return 0;
 }
