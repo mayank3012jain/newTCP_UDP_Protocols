@@ -7,7 +7,8 @@
 #define PORT_SERVER 12347
 #define PORT_RELAY1 12345
 #define PORT_RELAY2 12346
-
+#define PDR 20
+#define WAIT_TIME 3
 
 typedef struct packet{
     int size;

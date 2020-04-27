@@ -20,7 +20,7 @@ void die(char *s)
 }
 
 int main(int argc, char* argv[]){
-    int s;
+    int s, count=0, drop = 100/PDR, relayNumber = argv[1][0]-'0';
     packet pkt;
 
     if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
@@ -39,7 +39,7 @@ int main(int argc, char* argv[]){
     me_addr.sin_family = AF_INET;
     //check if working correctly
     if(argv[1][0]=='1'){    printf("relay 1\n"); me_addr.sin_port = htons(PORT_RELAY1);}
-    if(argv[1][0]=='2'){    me_addr.sin_port = htons(PORT_RELAY2);}
+    if(argv[1][0]=='2'){    printf("relay 2\n");me_addr.sin_port = htons(PORT_RELAY2);}
     me_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     //bind
     if( bind(s , (struct sockaddr*)&me_addr, sizeof(me_addr) ) == -1)
@@ -56,6 +56,7 @@ int main(int argc, char* argv[]){
     {
             die("recvfrom()");
     }
+    count++;
     printf("Pkt recieved from server:%d for seq num %d \n", pkt.isData-1, pkt.seq);
     // printf("Received packet from %s:%d\n", inet_ntoa(server_addr.sin_addr),ntohs(client_addr.sin_port));
     tv.tv_usec = ((rand()%2)+1) *1000;
@@ -80,9 +81,15 @@ int main(int argc, char* argv[]){
             printf("Closing relay.");
             break;
         }
-        printf("Pkt recieved from server:%d for seq num %d \n", pkt.isData -1 , pkt.seq);
+        printf("Pkt recieved from server:%d for seq num %d \n", 1- pkt.isData , pkt.seq);
+        printf("Received packet from %s:%d\n", inet_ntoa(rcv_addr.sin_addr),ntohs(rcv_addr.sin_port));
         //send to server
         if(pkt.isData==1){
+            count++;
+            if(count% drop ==0){
+                printf("Relay %d  D  time  DATA  %d  client relay\n", relayNumber, pkt.seq);
+                continue;
+            }
             tv.tv_usec = (rand()%3) *1000;
             printf("Delay of %d ms introduced", (int)tv.tv_usec/1000);
             activity = select(0, &rset, NULL, NULL, &tv);

@@ -120,6 +120,8 @@ int main(int argc, char* argv[]){
     FILE *fptr = fopen("input.txt", "r");
     // fptr[1] = fopen("input.txt", "r"); fseek(fptr[1], PACKET_SIZE, SEEK_SET);
     queue q;
+    q.size=0;
+    q.head = q.tail = NULL;
     packet send_pkt,rcv_ack;
 
     struct sockaddr_in relay[2], rcv_addr;
@@ -150,12 +152,39 @@ int main(int argc, char* argv[]){
             die("sendto()");
         }
         insertQ(&send_pkt, &q);
+        printf("Msg sent on channel %d for seq num %d \n", send_pkt.channel, send_pkt.seq);
     }
     printf("Initial msgs sent\n");
+    fflush(stdout);
+
+    fd_set rset;
+    FD_ZERO(&rset);
+    int maxfd = s;
+    struct timeval tv;
+    tv.tv_usec=0;
+    tv.tv_sec= WAIT_TIME;
 
     while(1){
         if(q.size==0 && feof(fptr)==1){
             break;
+        }
+        tv.tv_sec=WAIT_TIME;
+        tv.tv_usec=0;
+        FD_SET(s, &rset);
+        int activity = select(maxfd +1, &rset, NULL, NULL, &tv);
+        printf("Out of sleect\n");
+        fflush(stdout);
+        //timeout
+        if(activity==0){
+            printf("Client  TO  time  ACK  %d  relay %d client\n", q.head->pkt.seq, q.head->pkt.channel);
+            pktCopy(&send_pkt, &q.head->pkt);
+            if (sendto(s, &send_pkt, sizeof(send_pkt), 0 , (struct sockaddr *) &relay[send_pkt.channel], slen)==-1)
+            {
+                die("sendto()");
+            }
+            printf("Client  RE  time  DATA  %d  client  relay %d\n", q.head->pkt.seq, q.head->pkt.channel);
+            continue;
+            
         }
         if (recvfrom(s, &rcv_ack, sizeof(rcv_ack), 0, (struct sockaddr *) &rcv_addr, &slen) == -1)
         {
@@ -165,7 +194,7 @@ int main(int argc, char* argv[]){
         ackQ(&rcv_ack, &q);
         // int channel = rcv_ack.channel;
         
-        if(q.size<windowsize && feof(fptr)==0){
+        while(q.size<windowsize && feof(fptr)==0){
             generatePkt(&send_pkt, 1, 0, fptr);
             if (sendto(s, &send_pkt, sizeof(send_pkt), 0 , (struct sockaddr *) &relay[send_pkt.channel], slen)==-1)
             {

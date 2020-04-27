@@ -31,13 +31,13 @@ void die(char *s)
 // }
 listNode* bufferedWrite(packet* pkt, int *req, listNode* head, FILE* fptr){
     if(pkt->seq == *req){
-        fprintf (fptr, "MSG %d: %s",pkt->seq, pkt->data);
+        fprintf (fptr, "%s",pkt->data);
         *req = pkt->seq + pkt->size;
         while(head){
             if(head->seq != *req){
                 break;
             }else{
-                fprintf (fptr, "MSG %d:%s", head->seq, head->data);
+                fprintf (fptr, "%s", head->data);
                 *req = head->nextSeq;
             }
             listNode* temp = head;
