@@ -45,10 +45,11 @@ void generatePkt(packet* pkt, int isData, int channel, FILE* fptr){
     pkt->isLast=0;
     char msg[PACKET_SIZE+1];
     int offset = 0;
+    memset(msg, '\0', PACKET_SIZE+1);
     while(!feof(fptr)){
         msg[offset] = getc(fptr);
         if(offset==PACKET_SIZE-1){
-            msg[offset+1]='\0';
+            // msg[offset]='\0';
             pkt->size= PACKET_SIZE;
             // fseek(fptr, PACKET_SIZE, SEEK_CUR);
             break;
@@ -56,7 +57,7 @@ void generatePkt(packet* pkt, int isData, int channel, FILE* fptr){
         offset++;
     }
     if(feof(fptr)){
-        msg[offset-1]='\0';
+        // msg[offset-1]='\0';
         pkt->isLast=1;
         pkt->size = offset-1;
     }
@@ -116,8 +117,34 @@ void ackQ(packet* pkt, queue* q){
     return;
 }
 
+char* getCurrentTime(){
+    char *str = (char*)malloc(sizeof(char)*20);
+    int rc;
+    time_t curr;
+    struct tm* timeptr;
+    struct timeval tv;
+
+    curr = time(NULL);
+    timeptr = localtime(&curr);
+    gettimeofday(&tv,NULL);
+
+    rc = strftime(str, 20, "%H:%M:%S", timeptr);
+
+    char ms[8];
+    sprintf(ms, ".%06ld",tv.tv_usec);
+    strcat(str, ms);
+    return str;
+}
+
+void logPrint(char *NodeName, char *EventType, char *Timestamp, char *PacketType, int SeqNo, char *Source, char *Dest){
+    FILE* logf = fopen("log.txt", "a");
+    fprintf(logf, "%8s  %9s  %9s  %10s  %5d  %6s  %s\n", NodeName, EventType, Timestamp, PacketType, SeqNo, Source, Dest);
+    fclose(logf); 
+}
+
 int main(int argc, char* argv[]){
     FILE *fptr = fopen("input.txt", "r");
+    char relayName[15];
     // fptr[1] = fopen("input.txt", "r"); fseek(fptr[1], PACKET_SIZE, SEEK_SET);
     queue q;
     q.size=0;
@@ -143,6 +170,9 @@ int main(int argc, char* argv[]){
     relay[1].sin_port = htons(PORT_RELAY2);
 	relay[1].sin_addr.s_addr = inet_addr("127.0.0.1");
 
+    printf("Client running.\n");
+    fflush(stdout);
+
     //send initial msgs
     while(q.size< windowsize){
         generatePkt(&send_pkt, 1, i, fptr);
@@ -152,10 +182,11 @@ int main(int argc, char* argv[]){
             die("sendto()");
         }
         insertQ(&send_pkt, &q);
-        printf("Msg sent on channel %d for seq num %d \n", send_pkt.channel, send_pkt.seq);
+        sprintf(relayName, "Relay %d", send_pkt.channel+1);
+        logPrint("Client ", "S", getCurrentTime(), "DATA", send_pkt.seq, "Client", relayName);
+        // printf("Msg sent on channel %d for seq num %d \n", send_pkt.channel, send_pkt.seq);
     }
-    printf("Initial msgs sent\n");
-    fflush(stdout);
+    // printf("Initial msgs sent\n");
 
     fd_set rset;
     FD_ZERO(&rset);
@@ -172,17 +203,20 @@ int main(int argc, char* argv[]){
         tv.tv_usec=0;
         FD_SET(s, &rset);
         int activity = select(maxfd +1, &rset, NULL, NULL, &tv);
-        printf("Out of sleect\n");
+        // printf("Out of sleect\n");
         fflush(stdout);
         //timeout
         if(activity==0){
-            printf("Client  TO  time  ACK  %d  relay %d client\n", q.head->pkt.seq, q.head->pkt.channel);
+            // printf("Client  TO  time  ACK  %d  relay %d client\n", q.head->pkt.seq, q.head->pkt.channel);
             pktCopy(&send_pkt, &q.head->pkt);
+            logPrint("Client ", "TO", getCurrentTime(), "ACK", send_pkt.seq, "----", "----");
             if (sendto(s, &send_pkt, sizeof(send_pkt), 0 , (struct sockaddr *) &relay[send_pkt.channel], slen)==-1)
             {
                 die("sendto()");
             }
-            printf("Client  RE  time  DATA  %d  client  relay %d\n", q.head->pkt.seq, q.head->pkt.channel);
+            sprintf(relayName, "Relay %d", send_pkt.channel+1);
+            logPrint("Client ", "RE", getCurrentTime(), "DATA", send_pkt.seq, "Client", relayName);
+            // printf("Client  RE  time  DATA  %d  client  relay %d\n", q.head->pkt.seq, q.head->pkt.channel);
             continue;
             
         }
@@ -190,7 +224,9 @@ int main(int argc, char* argv[]){
         {
                 die("recvfrom()");
         }
-        printf("Ack recieved from channel %d for seq num %d \n", rcv_ack.channel, rcv_ack.seq);
+        sprintf(relayName, "Relay %d", rcv_ack.channel+1);
+        logPrint("Client ", "R", getCurrentTime(), "ACK", rcv_ack.seq, relayName, "Client");
+        // printf("Ack recieved from channel %d for seq num %d \n", rcv_ack.channel, rcv_ack.seq);
         ackQ(&rcv_ack, &q);
         // int channel = rcv_ack.channel;
         
@@ -201,7 +237,9 @@ int main(int argc, char* argv[]){
                 die("sendto()");
             }
             insertQ(&send_pkt, &q);
-            printf("Msg sent on channel %d for seq num %d \n", send_pkt.channel, send_pkt.seq);
+            sprintf(relayName, "Relay %d", send_pkt.channel+1);
+            logPrint("Client ", "S", getCurrentTime(), "DATA", send_pkt.seq, "Client", relayName);
+            // printf("Msg sent on channel %d for seq num %d \n", send_pkt.channel, send_pkt.seq);
         }
     }
     //close socket

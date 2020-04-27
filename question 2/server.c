@@ -88,7 +88,37 @@ void generatePkt(packet* pkt, packet* datapkt){
     return;
 }
 
+char* getCurrentTime(){
+    char *str = (char*)malloc(sizeof(char)*20);
+    int rc;
+    time_t curr;
+    struct tm* timeptr;
+    struct timeval tv;
+
+    curr = time(NULL);
+    timeptr = localtime(&curr);
+    gettimeofday(&tv,NULL);
+
+    rc = strftime(str, 20, "%H:%M:%S", timeptr);
+
+    char ms[8];
+    sprintf(ms, ".%06ld",tv.tv_usec);
+    strcat(str, ms);
+    return str;
+}
+void logPrint(char *NodeName, char *EventType, char *Timestamp, char *PacketType, int SeqNo, char *Source, char *Dest){
+    FILE* logf = fopen("log.txt", "a");
+    fprintf(logf, "%8s  %9s  %9s  %10s  %5d  %6s  %s\n", NodeName, EventType, Timestamp, PacketType, SeqNo, Source, Dest);
+    fclose(logf); 
+}
+
 int main(){
+
+    FILE* logf = fopen("log.txt", "w");
+    fprintf(logf, "NodeName  EventType  Timestamp        PacketType  SeqNo  Source  Dest\n");
+    fclose(logf);
+    char stime[15];
+
     FILE* fptr = fopen("output.txt", "w");
     listNode* bufHead = NULL;
     int reqSeq= 0;
@@ -113,6 +143,7 @@ int main(){
         die("bind");
     }
     int recv_bytes;
+    printf("Server Running\n");
     while(1){
         recv_bytes = recvfrom(sock, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *) &rcv_addr, &addr_len);
         if (recv_bytes == -1)
@@ -124,12 +155,16 @@ int main(){
             break;
         }
         // int channel = rcv_ack.channel;
+        char relayName[10];
+        sprintf(relayName, "Relay %d", rcv_pkt.channel+1);
+        logPrint("Server ", "R", getCurrentTime(), "DATA", rcv_pkt.seq, relayName, "SERVER");
         bufHead = bufferedWrite(&rcv_pkt, &reqSeq, bufHead, fptr);
         generatePkt(&send_pkt, &rcv_pkt);
         if (sendto(sock, &send_pkt, sizeof(send_pkt), 0 , (struct sockaddr *) &rcv_addr, addr_len)==-1)
         {
             die("sendto()");
         }
+        logPrint("Server ", "S", getCurrentTime(), "ACK", send_pkt.seq, "SERVER", relayName);
     }
     close(sock);
     fclose(fptr);

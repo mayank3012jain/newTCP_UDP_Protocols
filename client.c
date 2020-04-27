@@ -172,10 +172,11 @@ int main(int argc, char* argv[]){
                     exit (0);
                     }
                 // recvBuffer[bytesRecvd] = '\0';
-                printf ("sock %d: %d: %s\n",i, rcvdPkt->seq, rcvdPkt->data);
+                fprintf (stdout, "RCVD PKT: Seq. No %d of size %d Bytes from channel %d\n", rcvdPkt->seq, rcvdPkt->size, rcvdPkt->channel);
+                // printf ("sock %d: %d: %s\n",i, rcvdPkt->seq, rcvdPkt->data);
 
                 if(feof(fptr1)){
-                    printf("\n%d in end", i);
+                    // printf("\n%d in end", i);
                     if(stop ==1){
                         printf("\nFile 1 transfered. :)");
                         close(sock[0]);

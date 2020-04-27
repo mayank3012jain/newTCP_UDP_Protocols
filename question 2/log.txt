@@ -1,0 +1,41 @@
+NodeName  EventType  Timestamp        PacketType  SeqNo  Source  Dest
+ Client           S  21:54:35.741320        DATA      0  Client  Relay 1
+ Relay 1          R  21:54:35.741320        DATA      0  CLIENT  Relay 1
+ Client           S  21:54:35.742243        DATA    100  Client  Relay 2
+ Relay 2          R  21:54:35.742442        DATA    100  CLIENT  Relay 2
+ Client           S  21:54:35.743130        DATA    200  Client  Relay 1
+ Client           S  21:54:35.744016        DATA    300  Client  Relay 2
+ Server           R  21:54:35.744989        DATA      0  Relay 1  SERVER
+ Client           S  21:54:35.744702        DATA    352  Client  Relay 2
+ Relay 1          S  21:54:35.744836        DATA      0  Relay 1  SERVER
+ Relay 2          S  21:54:35.745896        DATA    100  Relay 2  SERVER
+ Server           S  21:54:35.746552        DATA      0  SERVER  Relay 1
+ Relay 1          R  21:54:35.747127        DATA    200  CLIENT  Relay 1
+ Relay 2          R  21:54:35.747500        DATA    300  CLIENT  Relay 2
+ Server           R  21:54:35.747753        DATA    100  Relay 2  SERVER
+ Server           S  21:54:35.749126        DATA    100  SERVER  Relay 2
+ Relay 1          S  21:54:35.749257        DATA    200  Relay 1  SERVER
+ Relay 2          S  21:54:35.749949        DATA    300  Relay 2  SERVER
+ Server           R  21:54:35.749817        DATA    200  Relay 1  SERVER
+ Relay 1          R  21:54:35.750133         ACK      0  SERVER  Relay 1
+ Relay 2          R  21:54:35.750971        DATA    352  CLIENT  Relay 2
+ Server           S  21:54:35.751916        DATA    200  SERVER  Relay 1
+ Relay 1          S  21:54:35.752223         ACK      0  Relay 1  CLIENT
+ Client           R  21:54:35.752255         ACK      0  Relay 1  Client
+ Relay 2          S  21:54:35.752825        DATA    352  Relay 2  SERVER
+ Server           R  21:54:35.753434        DATA    300  Relay 2  SERVER
+ Relay 1          R  21:54:35.753660         ACK    200  SERVER  Relay 1
+ Relay 2          R  21:54:35.754396         ACK    100  SERVER  Relay 2
+ Server           S  21:54:35.754662        DATA    300  SERVER  Relay 2
+ Client           R  21:54:35.755469         ACK    200  Relay 1  Client
+ Relay 1          S  21:54:35.755429         ACK    200  Relay 1  CLIENT
+ Server           R  21:54:35.755940        DATA    352  Relay 2  SERVER
+ Relay 2          S  21:54:35.755875         ACK    100  Relay 2  CLIENT
+ Client           R  21:54:35.756362         ACK    100  Relay 2  Client
+ Server           S  21:54:35.756918        DATA    352  SERVER  Relay 2
+ Relay 2          R  21:54:35.757104         ACK    300  SERVER  Relay 2
+ Relay 2          S  21:54:35.757713         ACK    300  Relay 2  CLIENT
+ Client           R  21:54:35.757760         ACK    300  Relay 2  Client
+ Relay 2          R  21:54:35.758646         ACK    352  SERVER  Relay 2
+ Relay 2          S  21:54:35.759037         ACK    352  Relay 2  CLIENT
+ Client           R  21:54:35.759055         ACK    352  Relay 2  Client
