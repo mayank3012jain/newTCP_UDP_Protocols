@@ -47,15 +47,23 @@ int main(int argc, char* argv[]){
         die("bind");
     }
 
+    struct timeval tv;
+    int activity;
+    fd_set rset;
+    FD_ZERO(&rset);
     //store client address
-    // if (recvfrom(s, &pkt, sizeof(pkt), 0, (struct sockaddr *) &client_addr, &) == -1)
     if (recvfrom(s, &pkt, sizeof(pkt), 0, (struct sockaddr *) &client_addr, &sLen) == -1)
     {
             die("recvfrom()");
     }
     printf("Pkt recieved from server:%d for seq num %d \n", pkt.isData-1, pkt.seq);
-    printf("Received packet from %s:%d\n", inet_ntoa(server_addr.sin_addr),ntohs(client_addr.sin_port));
-
+    // printf("Received packet from %s:%d\n", inet_ntoa(server_addr.sin_addr),ntohs(client_addr.sin_port));
+    tv.tv_usec = ((rand()%2)+1) *1000;
+    tv.tv_sec = 0;
+    printf("Delay of %d ms introduced", (int)tv.tv_usec);
+    fflush(stdout);
+    activity = select(0, &rset, NULL, NULL, &tv);
+    
     if (sendto(s, &pkt, sizeof(pkt), 0 , (struct sockaddr *) &server_addr, sLen)==-1)
     {
         die("sendto()");
@@ -75,6 +83,9 @@ int main(int argc, char* argv[]){
         printf("Pkt recieved from server:%d for seq num %d \n", pkt.isData -1 , pkt.seq);
         //send to server
         if(pkt.isData==1){
+            tv.tv_usec = (rand()%3) *1000;
+            printf("Delay of %d ms introduced", (int)tv.tv_usec);
+            activity = select(0, &rset, NULL, NULL, &tv);
             if (sendto(s, &pkt, sizeof(pkt), 0 , (struct sockaddr *) &server_addr, sLen)==-1)
             {
                 die("sendto()");
