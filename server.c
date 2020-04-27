@@ -1,4 +1,4 @@
-#include "packetDef.h"
+#include "packet.h"
 #include <stdio.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -13,7 +13,7 @@
 
 #define MAXPENDING 5
 // #define BUFFERSIZE 1024
-#define PDR 20
+#define PDR 10
 
 typedef struct listNode{
     int seq;
@@ -36,13 +36,13 @@ void generatePkt(packet* pkt, packet* datapkt){
 listNode* bufferedWrite(packet* pkt, int *req, listNode* head, FILE* fptr){
     // fprintf(fptr, "*Req off was %d, current seq is %d*\n", *req, pkt->seq);
     if(pkt->seq == *req){
-        fprintf (fptr, "MSG %d: %s", pkt->seq, pkt->data);
+        fprintf (fptr, "%s", pkt->data);
         *req = pkt->seq + pkt->size;
         while(head){
             if(head->seq != *req){
                 break;
             }else{
-                fprintf (fptr, "MSG %d:%s", head->seq, head->data);
+                fprintf (fptr, "%s", head->data);
                 *req = head->nextSeq;
             }
             listNode* temp = head;
@@ -83,7 +83,7 @@ listNode* bufferedWrite(packet* pkt, int *req, listNode* head, FILE* fptr){
 
 int main (){
 
-    FILE* fptr1 = fopen("copy1.txt", "w");
+    FILE* fptr1 = fopen("output.txt", "w");
     int f[2] = {0, 0};
     packet rcvdPkt;
     packet ackPkt;
@@ -152,11 +152,11 @@ int main (){
     FD_SET(clientSocket[0], &rset);   
     FD_SET(clientSocket[1], &rset);   
     max_fd = clientSocket[0]>=clientSocket[1] ? clientSocket[0]: clientSocket[1];
-    printf("----%d--%d--%d", max_fd, clientSocket[0], clientSocket[1]);
+    // printf("----%d--%d--%d", max_fd, clientSocket[0], clientSocket[1]);
     
     int d=1, cnt=0;
     while(d==1){
-        printf("enter 0 or 1");
+        // printf("enter 0 or 1");
         // scanf("%d", &d);
         // if(d==0){
         //     break;
@@ -164,7 +164,7 @@ int main (){
         if(f[0]==1 && f[1]==1){
             listNode* tempN = bufferHead;
             while (tempN){
-            fprintf (fptr1, "MSG end %d: %s", tempN->seq, tempN->data);
+            fprintf (fptr1, "%s", tempN->data);
             tempN= tempN->next;
             }
             close(serverSocket);
@@ -180,7 +180,7 @@ int main (){
 
         //blocking rcv on both
         int activity = select(max_fd +1, &rset, NULL, NULL, NULL);
-        printf("\nOut of select\n");
+        // printf("\nOut of select\n");
         if ((activity < 0) && (errno!=EINTR)){   
             printf("select error");  
             exit(0); 
@@ -196,17 +196,18 @@ int main (){
                     { printf ("problem in reading from client %d", i);
                     exit (0);
                 }else if(temp2==0){
-                    printf("Closing channel %d.", i);
+                    printf("Closing channel %d.\n", i);
                     close(clientSocket[i]);
                     f[i] = 1;
                     continue;
                 }
-                fprintf (stdout, "Msg recieved:%d- %s\n", rcvdPkt.seq, rcvdPkt.data);
+                fprintf (stdout, "RCVD PKT: Seq. No %d of size %d Bytes from channel %d\n", rcvdPkt.seq, rcvdPkt.size, rcvdPkt.channel);
                 // fprintf (fptr1, "%s", rcvdPkt.data);
                 generatePkt(&ackPkt, &rcvdPkt);
                 if(cnt%drop != 0){
                     bufferHead = bufferedWrite(&rcvdPkt, &reqSeq, bufferHead, fptr1);
                     int bytesSent = send(clientSocket[i], &ackPkt, sizeof(ackPkt),0);
+                    fprintf (stdout, "SENT ACK: for PKT with Seq. No. %d from channel %d\n", ackPkt.seq, ackPkt.channel);
                 }
                 break;
             }
