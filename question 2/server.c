@@ -26,9 +26,56 @@ void die(char *s)
     exit(1);
 }
 
-void bufferedWrite(packet* pkt, FILE* fptr){
-    fprintf(fptr, "MSG %d- %s", pkt->seq, pkt->data);
+// void bufferedWrite(packet* pkt, FILE* fptr){
+//     fprintf(fptr, "MSG %d- %s", pkt->seq, pkt->data);
+// }
+listNode* bufferedWrite(packet* pkt, int *req, listNode* head, FILE* fptr){
+    if(pkt->seq == *req){
+        fprintf (fptr, "MSG %d: %s",pkt->seq, pkt->data);
+        *req = pkt->seq + pkt->size;
+        while(head){
+            if(head->seq != *req){
+                break;
+            }else{
+                fprintf (fptr, "MSG %d:%s", head->seq, head->data);
+                *req = head->nextSeq;
+            }
+            listNode* temp = head;
+            head = head->next;
+            free(temp);
+        }  
+    }else{
+        //insert
+        listNode* temp = head, *prev = NULL;
+        listNode* cur = (listNode*)malloc(sizeof(listNode));
+        cur->seq= pkt->seq;
+        cur->nextSeq = pkt->seq + pkt->size;
+        strcpy(cur->data, pkt->data);
+        while(temp){
+            if(temp->seq>= cur->nextSeq){
+                cur->next = temp;
+                if(prev){
+                    prev->next = cur;
+                    return head;
+                }else{
+                    return cur;
+                }
+            }
+            prev = temp;
+            temp = temp->next;
+        }
+        cur->next = temp;
+        if(prev){
+            prev->next = cur;
+            return head;
+        }else{
+            return cur;
+        }
+
+    }
+    return head;
 }
+
 
 void generatePkt(packet* pkt, packet* datapkt){
     // packet* pkt = (packet*)malloc(sizeof(packet));
@@ -43,6 +90,8 @@ void generatePkt(packet* pkt, packet* datapkt){
 
 int main(){
     FILE* fptr = fopen("output.txt", "w");
+    listNode* bufHead = NULL;
+    int reqSeq= 0;
 
     struct sockaddr_in rcv_addr, me_addr;
     packet rcv_pkt, send_pkt;
@@ -75,7 +124,7 @@ int main(){
             break;
         }
         // int channel = rcv_ack.channel;
-        bufferedWrite(&rcv_pkt, fptr);
+        bufHead = bufferedWrite(&rcv_pkt, &reqSeq, bufHead, fptr);
         generatePkt(&send_pkt, &rcv_pkt);
         if (sendto(sock, &send_pkt, sizeof(send_pkt), 0 , (struct sockaddr *) &rcv_addr, addr_len)==-1)
         {
