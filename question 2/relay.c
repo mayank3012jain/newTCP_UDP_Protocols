@@ -60,7 +60,7 @@ int main(int argc, char* argv[]){
     // printf("Received packet from %s:%d\n", inet_ntoa(server_addr.sin_addr),ntohs(client_addr.sin_port));
     tv.tv_usec = ((rand()%2)+1) *1000;
     tv.tv_sec = 0;
-    printf("Delay of %d ms introduced", (int)tv.tv_usec);
+    printf("Delay of %d ms introduced", (int)tv.tv_usec/1000);
     fflush(stdout);
     activity = select(0, &rset, NULL, NULL, &tv);
     
@@ -84,7 +84,7 @@ int main(int argc, char* argv[]){
         //send to server
         if(pkt.isData==1){
             tv.tv_usec = (rand()%3) *1000;
-            printf("Delay of %d ms introduced", (int)tv.tv_usec);
+            printf("Delay of %d ms introduced", (int)tv.tv_usec/1000);
             activity = select(0, &rset, NULL, NULL, &tv);
             if (sendto(s, &pkt, sizeof(pkt), 0 , (struct sockaddr *) &server_addr, sLen)==-1)
             {

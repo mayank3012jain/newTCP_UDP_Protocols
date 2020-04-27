@@ -27,7 +27,7 @@ void generatePkt(packet* pkt, int isData, int channel, FILE* fptr){
     int offset = 0;
     while(!feof(fptr)){
         msg[offset] = getc(fptr);
-        if(offset==PACKET_SIZE-2){
+        if(offset==PACKET_SIZE-1){
             msg[offset+1]='\0';
             pkt->size= PACKET_SIZE;
             break;
@@ -37,7 +37,7 @@ void generatePkt(packet* pkt, int isData, int channel, FILE* fptr){
     if(feof(fptr)){
         msg[offset-1]='\0';
         pkt->isLast=1;
-        pkt->size = offset;
+        pkt->size = offset-1;
     }
     strcpy(pkt->data, msg);
 
@@ -94,8 +94,7 @@ int main(int argc, char* argv[]){
     printf ("Connection 2 Established\n");
 
     /*Send initial msgs*/
-    // char msg[PACKET_SIZE];
-    // strcpy(msg, "Hi, I'm C1!!");
+
     generatePkt(&pkt[0], 1, 1, fptr1);
     printf("The msg was --%s--\n", pkt[0].data);
     int bytesSent = send(sock[0], &pkt[0], sizeof(pkt[0]), 0);

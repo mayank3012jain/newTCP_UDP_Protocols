@@ -12,13 +12,13 @@
 #include <sys/time.h>
 
 #define MAXPENDING 5
-#define BUFFERSIZE 1024
-#define PDR 10
+// #define BUFFERSIZE 1024
+#define PDR 20
 
 typedef struct listNode{
     int seq;
     int nextSeq;
-    char data[BUFFERSIZE];
+    char data[PACKET_SIZE+1];
     struct listNode* next;
 }listNode;
 
@@ -34,14 +34,15 @@ void generatePkt(packet* pkt, packet* datapkt){
 }
 
 listNode* bufferedWrite(packet* pkt, int *req, listNode* head, FILE* fptr){
+    // fprintf(fptr, "*Req off was %d, current seq is %d*\n", *req, pkt->seq);
     if(pkt->seq == *req){
-        fprintf (fptr, "%s", pkt->data);
-        *req = pkt->seq + pkt->size -1;
+        fprintf (fptr, "MSG %d: %s", pkt->seq, pkt->data);
+        *req = pkt->seq + pkt->size;
         while(head){
             if(head->seq != *req){
                 break;
             }else{
-                fprintf (fptr, "%s", head->data);
+                fprintf (fptr, "MSG %d:%s", head->seq, head->data);
                 *req = head->nextSeq;
             }
             listNode* temp = head;
@@ -53,7 +54,7 @@ listNode* bufferedWrite(packet* pkt, int *req, listNode* head, FILE* fptr){
         listNode* temp = head, *prev = NULL;
         listNode* cur = (listNode*)malloc(sizeof(listNode));
         cur->seq= pkt->seq;
-        cur->nextSeq = pkt->seq + pkt->size -1;
+        cur->nextSeq = pkt->seq + pkt->size;
         strcpy(cur->data, pkt->data);
         while(temp){
             if(temp->seq>= cur->nextSeq){
@@ -131,7 +132,7 @@ int main (){
         exit (0);
         }
     printf ("Now Listening\n");
-    printf ("Waiting for Client %s\n", inet_ntoa(clientAddress.sin_addr));
+    printf ("Waiting for Client \n");
 
     //clear the socket set  
     FD_ZERO(&rset);   
@@ -153,7 +154,7 @@ int main (){
     max_fd = clientSocket[0]>=clientSocket[1] ? clientSocket[0]: clientSocket[1];
     printf("----%d--%d--%d", max_fd, clientSocket[0], clientSocket[1]);
     
-    int d=1, i=0;
+    int d=1, cnt=0;
     while(d==1){
         printf("enter 0 or 1");
         // scanf("%d", &d);
@@ -161,6 +162,14 @@ int main (){
         //     break;
         // }
         if(f[0]==1 && f[1]==1){
+            listNode* tempN = bufferHead;
+            while (tempN){
+            fprintf (fptr1, "MSG end %d: %s", tempN->seq, tempN->data);
+            tempN= tempN->next;
+            }
+            close(serverSocket);
+            close(clientSocket[0]);
+            close(clientSocket[1]);
             fclose(fptr1);
             return 0;
         }
@@ -177,7 +186,7 @@ int main (){
             exit(0); 
         }  
         
-        i++;
+        cnt++;
         int drop = 100/PDR;
         //if msg recieved from client1
         for(int i=0; i<2; i++){
@@ -192,11 +201,11 @@ int main (){
                     f[i] = 1;
                     continue;
                 }
-                bufferHead = bufferedWrite(&rcvdPkt, &reqSeq, bufferHead, fptr1);
                 fprintf (stdout, "Msg recieved:%d- %s\n", rcvdPkt.seq, rcvdPkt.data);
                 // fprintf (fptr1, "%s", rcvdPkt.data);
                 generatePkt(&ackPkt, &rcvdPkt);
-                if(i%drop != 0){
+                if(cnt%drop != 0){
+                    bufferHead = bufferedWrite(&rcvdPkt, &reqSeq, bufferHead, fptr1);
                     int bytesSent = send(clientSocket[i], &ackPkt, sizeof(ackPkt),0);
                 }
                 break;

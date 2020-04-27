@@ -1,7 +1,7 @@
 #ifndef packetDef_h
 #define packetDef_h
 
-#define PACKET_SIZE 32
+#define PACKET_SIZE 10
 
 typedef struct packet{
     int size;
@@ -9,7 +9,7 @@ typedef struct packet{
     int isLast;
     int isData;
     
-    char data[PACKET_SIZE];
+    char data[PACKET_SIZE +1];
     int channel;
 }packet;
 
